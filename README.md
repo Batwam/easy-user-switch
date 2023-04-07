@@ -2,6 +2,7 @@ fastuserswitch
 ==============
 
 Gnome-shell extension to easily switch between connected users
+This is a fork of https://github.com/HROMANO/fastuserswitch
 
 You might need to install dependancies using:
 - Debian: `sudo apt install automake intltool`

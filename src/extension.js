@@ -1,131 +1,123 @@
-const Lang = imports.lang;
-
-const St = imports.gi.St;
-const AccountsService = imports.gi.AccountsService;
-const GLib = imports.gi.GLib;
-const Gdm = imports.gi.Gdm;
-const AuthPrompt = imports.gdm.authPrompt;
-
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
+const {Clutter,Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
+const Mainloop = imports.mainloop;
+const ExtensionUtils = imports.misc.extensionUtils;
+const CurrentExtension = ExtensionUtils.getCurrentExtension();
 
-const Me = imports.misc.extensionUtils.getCurrentExtension();
-const Convenience = Me.imports.convenience;
+let indicator = null;
 
-const Gettext = imports.gettext.domain('fastuserswitch');
-const _ = Gettext.gettext;
+function enable(){
+	indicator = new FastUserSwitch();
+}
 
-const Clutter = imports.gi.Clutter; // For Clutter.ActorAlign.CENTER
+function disable(){
+	indicator._disable();
+	indicator.destroy();
+	indicator = null;
+}
 
-const UserMenuItem = new Lang.Class({
-  Name: 'FastUserSwitchMenu.UserMenuItem',
-  Extends: PopupMenu.PopupBaseMenuItem,
+var FastUserSwitch = GObject.registerClass(
+	{ GTypeName: 'FastUserSwitch' },
+class FastUserSwitch extends PanelMenu.Button {
+	_init(){
+		super._init(0.0,'FastUserSwitch',false);
 
-  _init: function(user_manager, user) {
-    this.parent();
-    this.label = new St.Label({ text: user.get_real_name() });
-    this.actor.add(this.label);
-    this.actor.label_actor = this.label;
-    this.user_manager = user_manager;
-    this.user = user;
+		// this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.fastuserswith'); //need to add schema to use
 
-    let gdmClient = new Gdm.Client();
-    this._authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
-  },
+		this.box = new St.BoxLayout({
+			x_align: Clutter.ActorAlign.FILL
+		});
+		this.add_child(this.box);
 
-  activate: function(event) {
-    if (this.user.is_logged_in()) {
-      this._authPrompt.begin({ userName: this.user.get_user_name() });
-    } else {
-      // In case something is wrong, drop back to GDM login screen
-      Gdm.goto_login_session_sync(null);
-    }
-    this.parent(event);
-  }
+		this.label = new St.Label({
+			text: "test",
+			y_align: Clutter.ActorAlign.CENTER
+		});
+		this.box.add_child(this.label);
+
+		this._buildMenu();
+		this.connect('button-press-event',this._buildMenu.bind(this));
+
+		Main.panel.addToStatusArea('FastUserSwitch',this,0,'right'); //position,panel_side
+
+		this._refresh();
+	}
+
+	_buildMenu(){
+		this.menu.removeAll(); //start by deleting everything
+
+	  //settings shortcut:
+		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
+	}
+
+	_refresh() {
+		const REFRESH_RATE = 300;
+
+		// this.player = this.players.pick();
+		this._setText();
+		this._setIcon();
+		this._removeTimeout();
+
+		this._timeout = Mainloop.timeout_add(REFRESH_RATE, this._refresh.bind(this));
+		return true;
+	}
+
+	_setIcon(){
+	// 	const ICON_PLACE = this.settings.get_string('show-icon');
+	// 	const PLACEHOLDER = this.settings.get_string('button-placeholder');
+
+	// 	if(this.icon){
+	// 		this.box.remove_child(this.icon);
+	// 		this.icon = null;
+	// 	}
+
+	// 	if(!ICON_PLACE || !this.player || this.label.get_text() == "" || this.label.get_text() == PLACEHOLDER)
+	// 		return
+
+	// 	this.icon = this.player.icon
+
+	// 	if (this.icon != null | undefined){
+	// 		if (ICON_PLACE == "right")
+	// 			this.box.add_child(this.icon);
+	// 		else if (ICON_PLACE == "left")
+	// 			this.box.insert_child_at_index(this.icon,0);
+	// 	}
+	}
+
+	_setText() {
+	// 	try{
+	// 		if(this.player == null || undefined)
+	// 			this.label.set_text("")
+	// 		else
+	// 			this.label.set_text(buildLabel(this.players));
+	// 	}
+	// 	catch(err){
+	// 		log("FastUserSwitch: " + err);
+	// 		this.label.set_text("");
+	// 	}
+	}
+
+	_removeTimeout() {
+		if(this._timeout) {
+			Mainloop.source_remove(this._timeout);
+			this._timeout = null;
+		}
+	}
+
+	_disable(){
+		// if(this.icon)
+		// 	this.box.remove_child(this.icon);
+
+		this.box.remove_child(this.label);
+		this.remove_child(this.box);
+		this._removeTimeout();
+
+		if (this._repositionTimeout){
+			GLib.Source.remove(this._repositionTimeout);
+			this._repositionTimeout = null;
+		}
+	}
 });
 
-const FastUserSwitchMenu = new Lang.Class({
-  Name: 'FastUserSwitchMenu.FastUserSwitchMenu',
-  Extends: PanelMenu.Button,
-	
-  _init: function() {
-    this.parent(0.0, "Fast user switch");
-    let hbox = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
-    let icon = new St.Icon({ icon_name: 'system-users-symbolic',
-                             style_class: 'system-status-icon' });
-    hbox.add_child(icon);
-    hbox.add_child(new St.Label({ text: '\u25BE',
-                                  y_expand: true,
-                                  y_align: Clutter.ActorAlign.CENTER }));
-    this.actor.add_child(hbox);
-    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    this._users = [];
-    this._items = [];
-    this.actor.show();
-    this._user_manager = AccountsService.UserManager.get_default();
-    if (!this._user_manager.is_loaded) {
-      this._user_manager_loaded_id = 
-          this._user_manager.connect('notify::is-loaded',
-              Lang.bind(this, this._onUserManagerLoaded));
-    } else {
-      this._onUserManagerLoaded();
-    }
-  },
-
-  _onSwitchUserActivate: function() {
-    Gdm.goto_login_session_sync(null);
-  },
-	
-  _onUserManagerLoaded: function() {
-    this._users = this._user_manager.list_users();
-    this._updateMenu();
-    this._user_manager.connect('user-is-logged-in-changed',
-        Lang.bind(this, function(userManager, user) {
-            this._updateMenu();
-    }));
-  },
-
-  _updateMenu: function() {
-    this.menu.removeAll();
-    this._items = [];
-    let user_names = new Array();
-    this._users.forEach(Lang.bind(this, function(item) {
-      if (item.get_user_name() != GLib.get_user_name() && item.is_logged_in()) {
-        this._items[item.get_real_name()] = item;
-        user_names.push(item.get_real_name());
-    }}));
-
-    user_names.forEach(Lang.bind(this, function(item) {
-      let menu_item = new UserMenuItem(this._user_manager, this._items[item]);
-      this.menu.addMenuItem(menu_item);
-    }));
-    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-    this._switch_user_item = new PopupMenu.PopupMenuItem(_("Switch user"));
-    this._switch_user_item.connect('activate', Lang.bind(this, this._onSwitchUserActivate));
-    this.menu.addMenuItem(this._switch_user_item);
-  },
-
-  _onDestroy: function() {
-    if (this._user_manager_loaded_id) {
-      this._user_manager_disconnect(this._user_manager_loaded_id);
-      this._user_manager_loaded_id = 0;
-    }
-    this.destroy();
-  }
-});
-
-function init() {
-  Convenience.initTranslations('fastuserswitch');
-}
-
-let _indicator;
-
-function enable() {
-  _indicator = new FastUserSwitchMenu();
-  Main.panel.addToStatusArea('fastuserswitch-menu', _indicator);
-}
-
-function disable() {
-  _indicator._onDestroy();
-}
