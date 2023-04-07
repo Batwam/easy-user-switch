@@ -1,0 +1,8 @@
+{"shell-version": [ "43", "44" ],
+ "uuid": "fastuserswitch@batwam.corp",
+ "name": "Fast User Switch",
+ "url": "http://github.com/Batwam/fastuserswitch",
+ "version": "0",
+ "description": "Switch between connected users bypassing GDM screen",
+ "gettext-domain": "fastuserswitch"
+}
