@@ -73,12 +73,10 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 			menu_item.connect('activate', () => {
 				if (this._items[item].is_logged_in()) {
 					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_real_name()+' logged in, switching now');
-					let gdmClient = new Gdm.Client();
-					menu_item._authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
-					menu_item._authPrompt.begin({ userName: this._items[item].get_user_name() });
+					this._login(this._items[item].get_user_name());
 				} 
 				else {
-					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_real_name()+' not logged in, drop back to GDM login screen');
+					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+user+' not logged in, drop back to GDM login screen');
 					// In case something is wrong, drop back to GDM login screen
 					Gdm.goto_login_session_sync(null);
 				}
@@ -93,6 +91,21 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 
 		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 		// this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
+	}
+
+	_login(user){
+			
+			try{
+				let gdmClient = new Gdm.Client();
+				let authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
+				authPrompt.begin({ userName: user });
+				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - verificationStatus	: '+authPrompt.verificationStatus);
+				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - _mode		: '+authPrompt._mode);
+
+			}
+			catch(err){
+				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - login error: '+err);
+			}
 	}
 
 	_onSwitchUserActivate() {
