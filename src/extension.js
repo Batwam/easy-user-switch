@@ -1,11 +1,12 @@
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
-const {Clutter,Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
+const {Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
 const Mainloop = imports.mainloop;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const AuthPrompt = imports.gdm.authPrompt;
+const LoginDialog = imports.gdm.loginDialog;
 
 const Gettext = imports.gettext.domain('paneluserswitch');
 const _ = Gettext.gettext;
@@ -14,6 +15,7 @@ let indicator = null;
 
 function enable(){
 	indicator = new PanelUserSwitch();
+	Main.panel.addToStatusArea('paneluserswitch-menu', indicator);//added it so it shows in gdm too
 }
 
 function disable(){
@@ -72,8 +74,21 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 
 			menu_item.connect('activate', () => {
 				if (this._items[item].is_logged_in()) {
-					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_real_name()+' logged in, switching now');
-					this._login(this._items[item].get_user_name());
+					let user = this._items[item].get_user_name();
+					try{
+						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+user+' logged in, switching now');
+						let gdmClient = new Gdm.Client();
+					// let authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
+					// authPrompt.begin({ userName: user });
+					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js - verificationStatus	: '+authPrompt.verificationStatus);
+					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js - _mode		: '+authPrompt._mode);
+						const greeter = new Gdm.GreeterProxy();
+						// const sessionUser = new Gio.DesktopAppInfo.new(user);
+						greeter.call_select_user(user, null, null);
+					}
+					catch(err){
+						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+err);
+					};
 				} 
 				else {
 					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+user+' not logged in, drop back to GDM login screen');
@@ -91,21 +106,6 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 
 		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 		// this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
-	}
-
-	_login(user){
-			
-			try{
-				let gdmClient = new Gdm.Client();
-				let authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
-				authPrompt.begin({ userName: user });
-				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - verificationStatus	: '+authPrompt.verificationStatus);
-				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - _mode		: '+authPrompt._mode);
-
-			}
-			catch(err){
-				log(Date().substring(16,24)+' fastuserswitch/src/extension.js - login error: '+err);
-			}
 	}
 
 	_onSwitchUserActivate() {
