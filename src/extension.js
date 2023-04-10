@@ -26,12 +26,6 @@ var FastUserSwitchMenu = GObject.registerClass(
     Gdm.goto_login_session_sync(null);
   }
 	
-  _onUserManagerLoaded() {
-    this._users = this._user_manager.list_users();
-    this._updateMenu();
-    this._user_manager.connect('user-is-logged-in-changed', this._updateMenu.bind(this));
-  }
-
   _onDestroy() {
     if (this._user_manager_loaded_id) {
       this._user_manager_loaded_id = 0;
