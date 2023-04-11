@@ -56,47 +56,39 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 	_updateMenu() {
 		this.menu.removeAll();
 		this._items = [];
+		this._tty = [];
 		let user_names = new Array();
 		this._users.forEach((item) => {
-		  if (item.get_user_name() != GLib.get_user_name() && item.is_logged_in()) {
+		if (item.get_user_name() != GLib.get_user_name() && item.is_logged_in()) {
 			this._items[item.get_real_name()] = item;
+			this._tty[item.get_real_name()] = this._identifyTTY(item.get_user_name());;
 			user_names.push(item.get_real_name());
-			log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+item.get_real_name()+' added');
-		}
-		else {
-			log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+item.get_real_name()+' excluded');
+			// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+item.get_real_name()+' added');
 		}
 		});
-	
+
 		user_names.forEach((item) => {
 			// let menu_item = new UserMenuItem(this._user_manager, this._items[item]);
-			let menu_item = new PopupMenu.PopupMenuItem(this._items[item].get_real_name());
+			let menu_item = new PopupMenu.PopupMenuItem(item);
+			let userName = this._items[item].get_user_name();
+			// log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+userName+' now connected in tty'+this._tty[item]);
 
 			menu_item.connect('activate', () => {
-				if (this._items[item].is_logged_in()) {
-					let user = this._items[item].get_user_name();
+				if (this._tty[item] && this._items[item].is_logged_in()) {
+					let tty = this._tty[item];
 					try{
-						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+user+' logged in, switching now');
-						let gdmClient = new Gdm.Client();
-					// let authPrompt = new AuthPrompt.AuthPrompt(gdmClient, AuthPrompt.AuthPromptMode.UNLOCK_ONLY);
-					// authPrompt.begin({ userName: user });
-					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js - verificationStatus	: '+authPrompt.verificationStatus);
-					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js - _mode		: '+authPrompt._mode);
-						const greeter = new Gdm.GreeterProxy();
-						// const sessionUser = new Gio.DesktopAppInfo.new(user);
-						greeter.call_select_user(user, null, null);
+						this._runShell('sudo chvt '+tty); //switch to associated tty
 					}
-					catch(err){
-						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+err);
-					};
+					catch(error){
+						log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+error);
+					}
 				} 
 				else {
-					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+user+' not logged in, drop back to GDM login screen');
+					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+userName+' not logged in, drop back to GDM login screen');
 					// In case something is wrong, drop back to GDM login screen
 					Gdm.goto_login_session_sync(null);
 				}
 			});
-			
 			this.menu.addMenuItem(menu_item);
 		});
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -106,6 +98,53 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 
 		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 		// this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
+	}
+	
+	_identifyTTY(userName){
+		let output = this._runShell('w -hsf').split('\n');
+		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - raw output: '+output.toString());
+
+		output = output.filter(line => line.includes(userName)); //only retain devices just in case
+		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
+		
+		if (output.length >0)
+			return output[0].charAt(output[0].indexOf('tty') + 3);
+
+		return;
+	}
+	_runShell(command){ 
+		//run shell command
+		//https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
+		let loop = GLib.MainLoop.new(null, false);
+		let argument = GLib.shell_parse_argv(command)[1];
+		let output = false;
+		try {
+			let proc = Gio.Subprocess.new(
+				argument,
+				Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
+			);
+		
+			proc.communicate_utf8_async(null, null, (proc, res) => {
+				try {
+					let [, stdout, stderr] = proc.communicate_utf8_finish(res);
+		
+					if (proc.get_successful()) {
+						// log('stdout: '+stdout);
+						output = stdout;
+					} else {
+						throw new Error(stderr);
+					}
+				} catch (e) {
+					logError(e);
+				} finally {
+					loop.quit();
+				}
+			});
+		} catch (e) {
+			logError(e);
+		}
+		loop.run();
+		return output;
 	}
 
 	_onSwitchUserActivate() {
