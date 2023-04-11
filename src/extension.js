@@ -7,6 +7,7 @@ const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
 const AuthPrompt = imports.gdm.authPrompt;
 const LoginDialog = imports.gdm.loginDialog;
+const keyboard = imports.ui.keyboard;
 
 const Gettext = imports.gettext.domain('paneluserswitch');
 const _ = Gettext.gettext;
