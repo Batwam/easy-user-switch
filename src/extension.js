@@ -5,12 +5,6 @@ const {Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
 const Mainloop = imports.mainloop;
 const ExtensionUtils = imports.misc.extensionUtils;
 const CurrentExtension = ExtensionUtils.getCurrentExtension();
-const AuthPrompt = imports.gdm.authPrompt;
-const LoginDialog = imports.gdm.loginDialog;
-const keyboard = imports.ui.keyboard;
-
-const Gettext = imports.gettext.domain('paneluserswitch');
-const _ = Gettext.gettext;
 
 let indicator = null;
 
@@ -37,8 +31,6 @@ class PanelUserSwitch extends PanelMenu.Button {
 		let icon = new St.Icon({ icon_name: 'system-users-symbolic',
 								style_class: 'system-status-icon' });
 		this.box.add_child(icon);
-
-log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'---------------------------');
 
 		this._users = [];
 		this._items = [];
@@ -77,16 +69,13 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 			menu_item.connect('activate', () => {
 				if (this._tty[item] && this._items[item].is_logged_in()) {
 					let tty = this._tty[item];
-					try{
-						this._runShell('sudo chvt '+tty); //switch to associated tty
-					}
-					catch(error){
-						log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+error);
-					}
+					let InputManipulator = new CurrentExtension.imports.InputManipulator.InputManipulator();
+					let shortcut = "<Ctrl><Alt>F"+tty;
+					InputManipulator.activateAccelerator(shortcut);
 				} 
 				else {
-					log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+userName+' not logged in, drop back to GDM login screen');
 					// In case something is wrong, drop back to GDM login screen
+					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+userName+' not logged in, drop back to GDM login screen');
 					Gdm.goto_login_session_sync(null);
 				}
 			});
@@ -97,8 +86,8 @@ log(Date().substring(16,24)+' PanelUserSwitch/src/extension.js: '+'-------------
 		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
 		this.menu.addMenuItem(this._switch_user_item);
 
-		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-		// this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
+		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 	}
 	
 	_identifyTTY(userName){
