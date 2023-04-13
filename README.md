@@ -12,8 +12,7 @@ https://github.com/Schneegans/Fly-Pie
 2. Restart gnome-shell, using <kbd>Alt</kbd>+<kbd>F2</kbd> then `r`+<kbd>Enter</kbd> with Xorg or logout/login with Wayland.
 3. Enable the extension `gnome-extensions enable paneluserswitch@batwam.corp`
 
-Optional - disable screen lock to avoid having to enter the password:
-`gsettings set org.gnome.desktop.lockdown disable-lock-screen true`
+Recommended system settings can be set in the Settings panel for the extension
 ## Extras
 
 - Enable an extension for all users (machine-wide)
