@@ -22,7 +22,7 @@ function fillPreferencesWindow(window) {
 
     group = new Adw.PreferencesGroup();
     group.set_title('System Preferences');
-    group.set_description('Update selected System Preferences');
+    group.set_description('Update relevant System Preferences');
     page.add(group);
 
     // Create a new preferences row

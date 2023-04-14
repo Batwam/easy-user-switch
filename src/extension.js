@@ -48,6 +48,15 @@ class PanelUserSwitch extends PanelMenu.Button {
 
 	_updateMenu() {
 		this.menu.removeAll();
+
+		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
+		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
+		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
+		this.menu.addMenuItem(this._switch_user_item);
+		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
 		this._items = [];
 		this._tty = [];
 		let user_names = new Array();
@@ -81,13 +90,6 @@ class PanelUserSwitch extends PanelMenu.Button {
 			});
 			this.menu.addMenuItem(menu_item);
 		});
-		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
-		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
-		this.menu.addMenuItem(this._switch_user_item);
-
-		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 	}
 	
 	_identifyTTY(userName){
