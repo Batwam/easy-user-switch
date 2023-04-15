@@ -1,32 +1,47 @@
 #!/bin/bash
-echo "Enter --system to install system wide"
+echo "Enter -s to install system wide, -c to recompile the schema"
 
-extension="paneluserswitch@batwam.corp"
-DEFAULT_INSTALL_DIR_LOCAL="$HOME/.local/share/gnome-shell/extensions/$extension"
-DEFAULT_INSTALL_DIR_GLOBAL="/usr/share/gnome-shell/extensions/$extension"
+cd "$(dirname "$0")/src"
 
-DEFAULT_INSTALL_DIR=$DEFAULT_INSTALL_DIR_LOCAL
+extension="easyuserswitch@batwam.corp"
+LOCAL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
+SYSTEM_DIR="/usr/share/gnome-shell/extensions/$extension"
+INSTALL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
 
-if [ "$1" == "--system" ]; then
+while getopts 'sc:' flag; do
+    case "${flag}" in
+        s) system_install=true;;
+        c) compile_schema=true;;
+    esac
+done
+
+#option for system wide install
+if [ "$system_install" == true ]; then
 	if [ "$EUID" -ne 0 ]; then
 		echo "Please run as root"
 		exit
 	fi
-	DEFAULT_INSTALL_DIR=$DEFAULT_INSTALL_DIR_GLOBAL
+	INSTALL_DIR=$SYSTEM_DIR
 fi
 
-if [ -d $DEFAULT_INSTALL_DIR_LOCAL ]; then
-	rm -rf $DEFAULT_INSTALL_DIR_LOCAL
+#option to recompile the schema
+if [ "$compile_schema" == true ]; then
+	echo "compiling git schema..."
+	glib-compile-schemas schemas/
 fi
 
-mkdir -p $DEFAULT_INSTALL_DIR
-cd "$(dirname "$0")/src"
+rm -rf "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+
 printf "\e[32mCopying extension files to target directory:\n\e[0m"
-cp -Rv ./* $DEFAULT_INSTALL_DIR
+cp -Rv ./* $INSTALL_DIR
 
 cd $OLDPWD
 
-if [ $XDG_SESSION_TYPE = "x11" ]; then
+#enable extension
+gnome-extensions enable $extension
+
+if [ "$XDG_SESSION_TYPE" = "x11" ]; then
 	printf "\n\e[32mAll files copied. \nReloading the gnome-shell (shortcut Alt + F2, r) to load the extension.\n\n\e[0m"
 	killall -3 gnome-shell
 else
