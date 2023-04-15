@@ -4,13 +4,13 @@ const PopupMenu = imports.ui.popupMenu;
 const {Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
 const Mainloop = imports.mainloop;
 const ExtensionUtils = imports.misc.extensionUtils;
-const CurrentExtension = ExtensionUtils.getCurrentExtension();
+const Me = ExtensionUtils.getCurrentExtension();
 
 let indicator = null;
 
 function enable(){
-	indicator = new PanelUserSwitch();
-	Main.panel.addToStatusArea('paneluserswitch-menu', indicator);//added it so it shows in gdm too
+	indicator = new EasyUserSwitch();
+	Main.panel.addToStatusArea('easyuserswitch-menu', indicator);//added it so it shows in gdm too
 }
 
 function disable(){
@@ -19,11 +19,11 @@ function disable(){
 	indicator = null;
 }
 
-var PanelUserSwitch = GObject.registerClass(
-	{ GTypeName: 'PanelUserSwitch' },
-class PanelUserSwitch extends PanelMenu.Button {
+var EasyUserSwitch = GObject.registerClass(
+	{ GTypeName: 'EasyUserSwitch' },
+class EasyUserSwitch extends PanelMenu.Button {
 	_init(){
-		super._init(0.0,'PanelUserSwitch',false);
+		super._init(0.0,'EasyUserSwitch',false);
 
 		this.box = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
 		this.add_child(this.box);
@@ -43,7 +43,7 @@ class PanelUserSwitch extends PanelMenu.Button {
 			this._onUserManagerLoaded();
 		}
 
-		Main.panel.addToStatusArea('PanelUserSwitch',this,0,'right'); //position,panel_side
+		Main.panel.addToStatusArea('EasyUserSwitch',this,0,'right'); //position,panel_side
 	}
 
 	_updateMenu() {
@@ -77,10 +77,22 @@ class PanelUserSwitch extends PanelMenu.Button {
 
 			menu_item.connect('activate', () => {
 				if (this._tty[item] && this._items[item].is_logged_in()) {
+					const extensionSettings = ExtensionUtils.getSettings('org.gnome.shell.extensions.easy-user-switch');
+					const LOCK_SCREEN_ON_SWITCH = extensionSettings.get_boolean ('lock-screen-on-switch');
+
 					let tty = this._tty[item];
-					let InputManipulator = new CurrentExtension.imports.InputManipulator.InputManipulator();
 					let shortcut = "<Ctrl><Alt>F"+tty;
-					InputManipulator.activateAccelerator(shortcut);
+					log(Date().substring(16,24)+' easy-user-switch/src/extension.js - shortcut: '+shortcut);
+					let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
+
+					if (LOCK_SCREEN_ON_SWITCH){
+						Main.overview.hide(); //leave overview mode first if activated
+						Main.screenShield.lock(true); //lock screen
+						setTimeout(() => {InputManipulator.activateAccelerator(shortcut); }, 1000);//simulate pressing shortcut
+					}
+					else {//simulate pressing shortcut
+						InputManipulator.activateAccelerator(shortcut);//simulate pressing shortcut
+					}
 				} 
 				else {
 					// In case something is wrong, drop back to GDM login screen
@@ -93,16 +105,23 @@ class PanelUserSwitch extends PanelMenu.Button {
 	}
 	
 	_identifyTTY(userName){
+		let tty;
 		let output = this._runShell('w -hsf').split('\n');
 		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - raw output: '+output.toString());
 
 		output = output.filter(line => line.includes(userName)); //only retain devices just in case
 		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
 		
-		if (output.length >0)
-			return output[0].charAt(output[0].indexOf('tty') + 3);
+		if (output.length == 0) //user not listed (unlikely)
+			return
+		
+		// default format 'username	tty3	...'
+		if (output[0].includes('tty'))
+			tty = output[0].charAt(output[0].indexOf('tty') + 3);
+		else //tty2 will show as `username	:0	?xdm? ...'
+			tty = 2;
 
-		return;
+		return tty;
 	}
 	_runShell(command){ 
 		//run shell command
