@@ -1,8 +1,7 @@
 {"shell-version": [ "43", "44" ],
- "uuid": "paneluserswitch@batwam.corp",
- "name": "Panel User Switch",
+ "uuid": "easyuserswitch@batwam.corp",
+ "name": "Easy User Switch",
  "url": "http://github.com/Batwam/fastuserswitch",
  "version": "0",
- "description": "Switch between connected users without GDM screen",
- "gettext-domain": "paneluserswitch"
+ "description": "Switch between connected users without GDM screen"
 }
