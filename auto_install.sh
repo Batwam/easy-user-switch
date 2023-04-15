@@ -2,16 +2,17 @@
 echo "Enter -s to install system wide, -c to recompile the schema"
 
 cd "$(dirname "$0")/src"
-
-extension="easyuserswitch@batwam.corp"
+# automatically generate name from metadata info
+extension=$(cat metadata.json | grep uuid | awk '{print $2}' | tr -d '",')
 LOCAL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
 SYSTEM_DIR="/usr/share/gnome-shell/extensions/$extension"
 INSTALL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
 
-while getopts 'sc:' flag; do
+while getopts 'scd:' flag; do
     case "${flag}" in
         s) system_install=true;;
         c) compile_schema=true;;
+		d) debug_mode=true
     esac
 done
 
@@ -36,21 +37,27 @@ mkdir -p "$INSTALL_DIR"
 printf "\e[32mCopying extension files to target directory:\n\e[0m"
 cp -Rv ./* $INSTALL_DIR
 
+#go back to original folder
 cd $OLDPWD
+
+#exit if run as root
+if [ "$EUID" -ne 0 ]; then
+	exit
+fi
 
 #enable extension
 gnome-extensions enable $extension
 
 if [ "$XDG_SESSION_TYPE" = "x11" ]; then
 	printf "\n\e[32mAll files copied. \nReloading the gnome-shell (shortcut Alt + F2, r) to load the extension.\n\n\e[0m"
-	killall -3 gnome-shell
+	
 else
 	printf "\n\e[32mAll files copied. \nPlease log out and log back in again to load the extension.\n\n\e[0m"
 fi
 
-
-journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
-#journalctl --follow -o cat /usr/bin/gnome-shell
-
+if [ "$debug_mode" == true ]; then
+	killall -3 gnome-shell
+	journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
+fi
 
 

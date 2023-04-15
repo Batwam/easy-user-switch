@@ -1,3 +1,5 @@
+'use strict';
+
 const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
@@ -52,10 +54,10 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
-		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
-		this.menu.addMenuItem(this._switch_user_item);
-		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+		// this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
+		// this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
+		// this.menu.addMenuItem(this._switch_user_item);
+		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
 		this._items = [];
 		this._tty = [];
@@ -70,10 +72,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 		});
 
 		user_names.forEach((item) => {
-			// let menu_item = new UserMenuItem(this._user_manager, this._items[item]);
 			let menu_item = new PopupMenu.PopupMenuItem(item);
-			let userName = this._items[item].get_user_name();
-			// log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+userName+' now connected in tty'+this._tty[item]);
+			// log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+this._items[item].get_user_name()+' now connected in tty'+this._tty[item]);
 
 			menu_item.connect('activate', () => {
 				if (this._tty[item] && this._items[item].is_logged_in()) {
@@ -96,7 +96,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 				} 
 				else {
 					// In case something is wrong, drop back to GDM login screen
-					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+userName+' not logged in, drop back to GDM login screen');
+					Main.osdWindowManager.show(0, null, "Unable to switch, back to login screen");
+					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_user_name()+' not logged in, drop back to GDM login screen');
 					Gdm.goto_login_session_sync(null);
 				}
 			});
