@@ -54,10 +54,10 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-		// this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
-		// this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
-		// this.menu.addMenuItem(this._switch_user_item);
-		// this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
+		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
+		this.menu.addMenuItem(this._switch_user_item);
+		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
 		this._items = [];
 		this._tty = [];

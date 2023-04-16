@@ -3,5 +3,6 @@
  "name": "Easy User Switch",
  "url": "http://github.com/Batwam/fastuserswitch",
  "version": "0",
- "description": "Switch between connected users without GDM screen"
+ "description": "Switch between connected users from Gnome panel",
+ "session-modes": ["user", "unlock-dialog"]
 }
