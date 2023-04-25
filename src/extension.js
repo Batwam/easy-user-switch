@@ -5,8 +5,11 @@ const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 const {Gio,GLib,GObject,St,Gdm,AccountsService} = imports.gi;
 const Mainloop = imports.mainloop;
+
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
+const extensionSettings = ExtensionUtils.getSettings();
+const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
 
 let indicator = null;
 
@@ -67,37 +70,61 @@ class EasyUserSwitch extends PanelMenu.Button {
 			this._items[item.get_real_name()] = item;
 			this._tty[item.get_real_name()] = this._identifyTTY(item.get_user_name());;
 			user_names.push(item.get_real_name());
-			// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+item.get_real_name()+' added');
 		}
 		});
 
 		user_names.forEach((item) => {
 			let menu_item = new PopupMenu.PopupMenuItem(item);
-			// log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+this._items[item].get_user_name()+' now connected in tty'+this._tty[item]);
+			if (DEBUG_MODE)
+				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+this._items[item].get_real_name()+' now connected in tty'+this._tty[item]);
 
 			menu_item.connect('activate', () => {
 				if (this._tty[item] && this._items[item].is_logged_in()) {
-					const extensionSettings = ExtensionUtils.getSettings('org.gnome.shell.extensions.easy-user-switch');
 					const LOCK_SCREEN_ON_SWITCH = extensionSettings.get_boolean ('lock-screen-on-switch');
+					const SWITCH_METHOD = extensionSettings.get_string ('switch-method');
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - SWITCH_METHOD: '+SWITCH_METHOD);
 
 					let tty = this._tty[item];
-					let shortcut = "<Ctrl><Alt>F"+tty;
-					log(Date().substring(16,24)+' easy-user-switch/src/extension.js - shortcut: '+shortcut);
-					let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
 
-					if (LOCK_SCREEN_ON_SWITCH){
-						Main.overview.hide(); //leave overview mode first if activated
-						Main.screenShield.lock(true); //lock screen
-						setTimeout(() => {InputManipulator.activateAccelerator(shortcut); }, 1000);//simulate pressing shortcut
+					if (SWITCH_METHOD == 'chvt'){
+						if (DEBUG_MODE)
+							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: tty'+tty);
+
+						this._runShell('sudo chvt '+tty); //switch to associated tty
 					}
-					else {//simulate pressing shortcut
-						InputManipulator.activateAccelerator(shortcut);//simulate pressing shortcut
+					else {
+						if (LOCK_SCREEN_ON_SWITCH){
+							if (DEBUG_MODE)
+									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - lock & shortcut: locking screen before switching');
+
+							Main.overview.hide(); //leave overview mode first if activated
+							Main.screenShield.lock(true); //lock screen
+							setTimeout(() => {
+								let shortcut = "<Ctrl><Alt>F"+tty;
+								if (DEBUG_MODE)
+									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - lock & shortcut: '+shortcut);
+
+								let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
+								InputManipulator.activateAccelerator(shortcut); 
+							}, 1000);//simulate pressing shortcut
+						}
+						else {//simulate pressing shortcut
+							let shortcut = "<Ctrl><Alt>F"+tty;
+							if (DEBUG_MODE)
+								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - shortcut: '+shortcut);
+
+							let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
+							InputManipulator.activateAccelerator(shortcut);//simulate pressing shortcut
+						}
 					}
 				} 
 				else {
 					// In case something is wrong, drop back to GDM login screen
 					Main.osdWindowManager.show(0, null, "Unable to switch, back to login screen");
-					// log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_user_name()+' not logged in, drop back to GDM login screen');
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_user_name()+' not logged in, drop back to GDM login screen');
+
 					Gdm.goto_login_session_sync(null);
 				}
 			});
@@ -108,10 +135,12 @@ class EasyUserSwitch extends PanelMenu.Button {
 	_identifyTTY(userName){
 		let tty;
 		let output = this._runShell('w -hsf').split('\n');
-		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - raw output: '+output.toString());
+		// if (DEBUG_MODE)
+		// 	log(Date().substring(16,24)+' panel-user-switch/src/extension.js - raw output: '+output.toString());
 
 		output = output.filter(line => line.includes(userName)); //only retain devices just in case
-		// log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
 		
 		if (output.length == 0) //user not listed (unlikely)
 			return
@@ -124,6 +153,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 
 		return tty;
 	}
+
 	_runShell(command){ 
 		//run shell command
 		//https://gjs.guide/guides/gio/subprocesses.html#communicating-with-processes
@@ -141,7 +171,9 @@ class EasyUserSwitch extends PanelMenu.Button {
 					let [, stdout, stderr] = proc.communicate_utf8_finish(res);
 		
 					if (proc.get_successful()) {
-						// log('stdout: '+stdout);
+						// if (DEBUG_MODE)
+						// 	log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: '+stdout);
+
 						output = stdout;
 					} else {
 						throw new Error(stderr);

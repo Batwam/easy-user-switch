@@ -4,66 +4,34 @@ const { Adw, Gio, Gtk } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
+const extensionSettings = ExtensionUtils.getSettings(); //will use the default location set in metadata.json
+const systemSettings = ExtensionUtils.getSettings('org.gnome.desktop.screensaver');
 
 function init() {
 }
 
 function fillPreferencesWindow(window) {
-    // Use the same GSettings schema as in `extension.js`
-    const systemSettings = ExtensionUtils.getSettings('org.gnome.desktop.screensaver');
-    const extensionSettings = ExtensionUtils.getSettings('org.gnome.shell.extensions.easy-user-switch');
-
     // Create a preferences page and group
-    let page;
-    let group;
-    let row;
-	let button;
-    let toggle;
+    let page, group, button;
 
     page = new Adw.PreferencesPage(); 
 
+    //System Preferences
     group = new Adw.PreferencesGroup({ title: 'System Preferences'});
     // group.set_description('Update relevant System Preferences');
     page.add(group);
-
-    // Create a new preferences row
-    row = new Adw.ActionRow({ title: 'Automatic Screen Lock' });
-    row.subtitle = "Disable to prevent session from locking due to inactivity"
-    group.add(row);
-
-    // Create the switch and bind its value to the `show-indicator` key
-    toggle = new Gtk.Switch({
-        active: systemSettings.get_boolean ('lock-enabled'),
-        valign: Gtk.Align.CENTER,
-    });
-    systemSettings.bind('lock-enabled',toggle,'active',Gio.SettingsBindFlags.DEFAULT);
-
-    // Add the switch to the row
-    row.add_suffix(toggle);
-    row.activatable_widget = toggle;
+    this.addToggle('Automatic Screen Lock',"Disable to prevent session from locking due to inactivity",'lock-enabled',systemSettings,group);
 
     //Extension Preferences
     group = new Adw.PreferencesGroup({ title: 'Extension Preferences'});
     // group.set_description('Update Extension Preferences');
     page.add(group);
+    this.addToggle('Lock session before switching',"Enable to require password when switching back",'lock-screen-on-switch',extensionSettings,group);
+    let fieldOptions = {'Keyboard shortcut':'shortcut','Chvt command':'chvt'};
+    this.addCombo('Switch Method','Change method used to switch Virtual Terminal',fieldOptions,'switch-method',extensionSettings,group);
+    this.addToggle('Debug Mode','Enable debug messages in `journalctl --follow` for debugging','debug-mode',extensionSettings,group);
 
-    row = new Adw.ActionRow({ title: 'Lock session before switching' });
-    row.subtitle = "Enable to require password when switching back"
-    group.add(row);
-
-    // Create the switch and bind its value to the key
-    toggle = new Gtk.Switch({
-        active: extensionSettings.get_boolean ('lock-screen-on-switch'),
-        valign: Gtk.Align.CENTER,
-    });
-    extensionSettings.bind('lock-screen-on-switch',toggle,'active',Gio.SettingsBindFlags.DEFAULT);
-
-    // Add the switch to the row
-    row.add_suffix(toggle);
-    row.activatable_widget = toggle;
-    page.add(group);
-
-    //add empty row
+    //add empty row to separate Rest Button
     group = new Adw.PreferencesGroup({ title: ' ' });
     page.add(group);
 
@@ -79,16 +47,59 @@ function fillPreferencesWindow(window) {
 }
 
 function resetSettings(){
-    const systemSettings = ExtensionUtils.getSettings('org.gnome.desktop.screensaver');
-    // systemSettings.reset('lock-enabled');
-    systemSettings.set_boolean('lock-enabled',false);
-
-    const extensionSettings = ExtensionUtils.getSettings('org.gnome.shell.extensions.easy-user-switch');
+    systemSettings.reset('lock-enabled');
     extensionSettings.reset('lock-screen-on-switch');
+    extensionSettings.reset('debug-mode');
 }
 
 function addEmptyRow(page){
     const group = new Adw.PreferencesGroup();
     group.set_title(' ');
     page.add(group);
+}
+
+function addToggle(rowTitle,rowSubtitle,rowSettingName,rowSettingLocation,group){
+    let row = new Adw.ActionRow({ title: rowTitle });
+    row.subtitle = rowSubtitle;
+    group.add(row);
+
+    // Create the switch and bind its value to the key
+    let toggle = new Gtk.Switch({
+        active: rowSettingLocation.get_boolean (rowSettingName),
+        valign: Gtk.Align.CENTER,
+    });
+    rowSettingLocation.bind(rowSettingName,toggle,'active',Gio.SettingsBindFlags.DEFAULT);
+
+    // Add the switch to the row
+    row.add_suffix(toggle);
+    row.activatable_widget = toggle;
+
+    return row
+}
+
+function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
+    let row = new Adw.ActionRow({ title: rowTitle });
+    row.subtitle = rowSubtitle;
+    group.add(row);
+
+    // Create the switch and bind its value to the key
+    let combo = new Gtk.ComboBoxText({
+        valign: Gtk.Align.CENTER,
+        halign: Gtk.Align.END,
+        visible: true
+    });
+    for (let option in options){
+		combo.append(options[option],option);
+	}
+	combo.set_active_id(settings.get_string(settingName));
+
+	combo.connect('changed', () => {
+		settings.set_string(settingName,combo.get_active_id());
+	});
+
+    // Add the switch to the row
+    row.add_suffix(combo);
+    row.activatable_widget = combo;
+
+    return row
 }
