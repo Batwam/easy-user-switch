@@ -171,21 +171,25 @@ class EasyUserSwitch extends PanelMenu.Button {
 					let [, stdout, stderr] = proc.communicate_utf8_finish(res);
 		
 					if (proc.get_successful()) {
-						// if (DEBUG_MODE)
-						// 	log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: '+stdout);
+						if (DEBUG_MODE)
+							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: '+stdout);
 
 						output = stdout;
 					} else {
 						throw new Error(stderr);
 					}
 				} catch (e) {
-					logError(e);
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - _runShell() command error: '+err);
+
 				} finally {
 					loop.quit();
 				}
 			});
-		} catch (e) {
-			logError(e);
+		} catch (err) {
+			if (DEBUG_MODE)
+				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - _runShell() general error: '+err);
+				
 		}
 		loop.run();
 		return output;

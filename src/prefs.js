@@ -79,7 +79,8 @@ function addToggle(rowTitle,rowSubtitle,rowSettingName,rowSettingLocation,group)
 
 function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
     let row = new Adw.ActionRow({ title: rowTitle });
-    row.subtitle = rowSubtitle;
+    row.subtitle = this.updateSubtitle(rowSubtitle,settingName,settings);
+
     group.add(row);
 
     // Create the switch and bind its value to the key
@@ -95,6 +96,7 @@ function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
 
 	combo.connect('changed', () => {
 		settings.set_string(settingName,combo.get_active_id());
+        row.subtitle = this.updateSubtitle(rowSubtitle,settingName,settings);
 	});
 
     // Add the switch to the row
@@ -102,4 +104,12 @@ function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
     row.activatable_widget = combo;
 
     return row
+}
+
+function updateSubtitle(defaultSubtitle,settingName,settings){
+    let subtitle = defaultSubtitle;
+    if (settings.get_string(settingName) == 'chvt')
+        subtitle = '⚠ Plese make sure your user is added to the sudoers list';
+
+    return subtitle
 }
