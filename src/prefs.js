@@ -27,7 +27,7 @@ function fillPreferencesWindow(window) {
     // group.set_description('Update Extension Preferences');
     page.add(group);
     this.addToggle('Lock session before switching',"Enable to require password when switching back",'lock-screen-on-switch',extensionSettings,group);
-    let fieldOptions = {'Keyboard shortcut':'shortcut','Chvt command':'chvt'};
+    let fieldOptions = {'Keyboard shortcut':'shortcut','`chvt` command':'chvt'};
     this.addCombo('Switch Method','Change method used to switch Virtual Terminal',fieldOptions,'switch-method',extensionSettings,group);
     this.addToggle('Debug Mode','Enable debug messages in `journalctl --follow` for debugging','debug-mode',extensionSettings,group);
 
@@ -96,20 +96,11 @@ function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
 
 	combo.connect('changed', () => {
 		settings.set_string(settingName,combo.get_active_id());
-        row.subtitle = this.updateSubtitle(rowSubtitle,settingName,settings);
-	});
+    });
 
     // Add the switch to the row
     row.add_suffix(combo);
     row.activatable_widget = combo;
 
     return row
-}
-
-function updateSubtitle(defaultSubtitle,settingName,settings){
-    let subtitle = defaultSubtitle;
-    if (settings.get_string(settingName) == 'chvt')
-        subtitle = '⚠ Plese make sure your user is added to the sudoers list';
-
-    return subtitle
 }
