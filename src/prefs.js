@@ -79,7 +79,7 @@ function addToggle(rowTitle,rowSubtitle,rowSettingName,rowSettingLocation,group)
 
 function addCombo(rowTitle,rowSubtitle,options,settingName,settings,group){
     let row = new Adw.ActionRow({ title: rowTitle });
-    row.subtitle = this.updateSubtitle(rowSubtitle,settingName,settings);
+    row.subtitle = rowSubtitle;
 
     group.add(row);
 
