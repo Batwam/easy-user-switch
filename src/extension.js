@@ -66,17 +66,24 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this._tty = [];
 		let user_names = new Array();
 		this._users.forEach((item) => {
-		if (item.get_user_name() != GLib.get_user_name() && item.is_logged_in()) {
-			this._items[item.get_real_name()] = item;
-			this._tty[item.get_real_name()] = this._identifyTTY(item.get_user_name());;
-			user_names.push(item.get_real_name());
-		}
+			let username = item.get_user_name();
+			if (username != GLib.get_user_name() && item.is_logged_in()) {
+				this._items[username] = item;
+				this._tty[username] = this._identifyTTY(item.get_user_name());//find tty corresponding to user
+				if (this._tty[username] || DEBUG_MODE) //only list user which have TTY identified
+					user_names.push(username)
+			}
 		});
 
 		user_names.forEach((item) => {
-			let menu_item = new PopupMenu.PopupMenuItem(item);
+			let displayName = item;
+			if (DEBUG_MODE) //provide tty info in menu
+				displayName = item+' (tty'+this._tty[item]+')';
+
+			let menu_item = new PopupMenu.PopupMenuItem(displayName);
+
 			if (DEBUG_MODE)
-				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+this._items[item].get_real_name()+' now connected in tty'+this._tty[item]);
+				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+this._items[item].get_real_name()+' now connected in tty'+this._tty[item]);
 
 			menu_item.connect('activate', () => {
 				if (this._tty[item] && this._items[item].is_logged_in()) {
@@ -91,7 +98,15 @@ class EasyUserSwitch extends PanelMenu.Button {
 						if (DEBUG_MODE)
 							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: tty'+tty);
 
-						this._runShell('sudo chvt '+tty); //switch to associated tty
+						let output = this._runShell('sudo chvt '+tty); //switch to associated tty
+						
+						if (output == false){
+							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
+							const icon = Gio.Icon.new_for_string('error-symbolic');
+							const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
+							let user = this._runShell('whoami').replace(/[\n\r]+/g, ''); //get username
+							Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+user+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
+						}
 					}
 					else {
 						if (LOCK_SCREEN_ON_SWITCH){
@@ -132,12 +147,11 @@ class EasyUserSwitch extends PanelMenu.Button {
 		});
 	}
 	
-	_identifyTTY(userName){
-		let tty;
+	_identifyTTY(userName){ //Note only works on wayland!
+		let tty = null;
 		let output = this._runShell('w -hsf').split('\n');
-		// if (DEBUG_MODE)
-		// 	log(Date().substring(16,24)+' panel-user-switch/src/extension.js - raw output: '+output.toString());
 
+		output = output.filter(line => line.includes('tty')); //only retain devices just in case
 		output = output.filter(line => line.includes(userName)); //only retain devices just in case
 		if (DEBUG_MODE)
 			log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
@@ -145,11 +159,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 		if (output.length == 0) //user not listed (unlikely)
 			return
 		
-		// default format 'username	tty3	...'
-		if (output[0].includes('tty'))
-			tty = output[0].charAt(output[0].indexOf('tty') + 3);
-		else //tty2 will show as `username	:0	?xdm? ...'
-			tty = 2;
+		// default format 'username	tty3	...', 
+		tty = output[0].charAt(output[0].indexOf('tty') + 3);
 
 		return tty;
 	}
@@ -172,15 +183,14 @@ class EasyUserSwitch extends PanelMenu.Button {
 		
 					if (proc.get_successful()) {
 						if (DEBUG_MODE)
-							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: '+stdout);
-
+							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: \n'+stdout);
 						output = stdout;
 					} else {
 						throw new Error(stderr);
 					}
-				} catch (e) {
+				} catch (err) {
 					if (DEBUG_MODE)
-						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - _runShell() command error: '+err);
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - _runShell() communicate error: '+err);
 
 				} finally {
 					loop.quit();
