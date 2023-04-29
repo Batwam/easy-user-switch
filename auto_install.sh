@@ -1,5 +1,4 @@
 #!/bin/bash
-echo "Enter flags: [s] to install system wide, [c] to recompile the schema, [d] debug mode"
 
 cd "$(dirname "$0")/src"
 # automatically generate name from metadata info
@@ -7,14 +6,25 @@ extension=$(cat metadata.json | grep uuid | awk '{print $2}' | tr -d '",')
 LOCAL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
 SYSTEM_DIR="/usr/share/gnome-shell/extensions/$extension"
 
-while getopts 'scd' flag; do
+while getopts 'scdh' flag; do
     case "${flag}" in
-        s)
+        s| --system)
 			system_install=true;;
-        c)
+        c| --compile)
 			compile_schema=true;;
-		d)
+		d| --debug)
 			debug_mode=true; echo "debug mode on";;
+		h | --help)
+			echo "Usage"
+			echo -e "\t ./auto_install.sh [options]\n"
+			echo -e "META OPTIONS"
+			echo -e "-h,--help\t display this help menu"
+			echo -e ""
+			echo -e "OPTIONS"
+			echo -e "-s,--system\t install system wide (run as root)"
+			echo -e "-c,--compile\t to recompile the extension schema (requires glib-compile-schemas)"
+			echo -e "-d,--debug\t debug mode"
+			exit 0;
     esac
 done
 
