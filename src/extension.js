@@ -149,10 +149,10 @@ class EasyUserSwitch extends PanelMenu.Button {
 	
 	_identifyTTY(userName){ //Note only works on wayland!
 		let tty = null;
-		let output = this._runShell('w -hsf').split('\n');
+		// let output = this._runShell('w -hsf').split('\n');
+		let output = this._runShell('loginctl').split('\n');
 
-		output = output.filter(line => line.includes('tty')); //only retain devices just in case
-		output = output.filter(line => line.includes(userName)); //only retain devices just in case
+		output = output.filter(line => line.includes('tty' && userName)); //only retain devices just in case
 		if (DEBUG_MODE)
 			log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
 		
