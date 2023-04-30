@@ -58,7 +58,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
 		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
-		this._switch_user_item.connect('activate', this._onSwitchUserActivate.bind(this));
+		this._switch_user_item.connect('activate', () => Gdm.goto_login_session_sync(null));
+		
 		this.menu.addMenuItem(this._switch_user_item);
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -118,23 +119,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 			this.menu.addMenuItem(menu_item);
 		});
 	}
-	
-	_identifyTTY(userName){ //Note only works on wayland!
-		let tty = null;
-		let output = this._runShell('loginctl').split('\n');
-
-		output = output.filter(line => line.includes('tty' && userName)); //only retain devices just in case
-		// if (DEBUG_MODE)
-		// 	log(Date().substring(16,24)+' panel-user-switch/src/extension.js - loginctl output for '+userName+': '+output.toString());
-		
-		if (output.length == 0) //user not listed (unlikely)
-			return
-		
-		// default format 'username	tty3	...', 
-		tty = output[0].charAt(output[0].indexOf('tty') + 3);
-
-		return tty;
-	}
 
 	_runShell(command){ 
 		//run shell command
@@ -174,10 +158,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 		}
 		loop.run();
 		return output;
-	}
-
-	_onSwitchUserActivate() {
-		Gdm.goto_login_session_sync(null);
 	}
 
 	_onUserManagerLoaded() {
