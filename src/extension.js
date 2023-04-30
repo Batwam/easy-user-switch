@@ -37,7 +37,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 								style_class: 'system-status-icon' });
 		this.box.add_child(icon);
 
-		this._users = [];
 		this._items = [];
 
 		this._user_manager = AccountsService.UserManager.get_default();
@@ -161,7 +160,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 
 	_onUserManagerLoaded() {
-		this._users = this._user_manager.list_users();
 		this._updateMenu();
 		this._user_manager.connect('user-is-logged-in-changed',this._updateMenu.bind(this));
 	}
