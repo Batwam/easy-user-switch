@@ -6,14 +6,14 @@ extension=$(cat metadata.json | grep uuid | awk '{print $2}' | tr -d '",')
 LOCAL_DIR="$HOME/.local/share/gnome-shell/extensions/$extension"
 SYSTEM_DIR="/usr/share/gnome-shell/extensions/$extension"
 
-while getopts 'scdh' flag; do
+while getopts 's:-system:c:-compile:d:-debug:h:-help:' flag; do
     case "${flag}" in
-        s| --system)
+        s | --system)
 			system_install=true;;
-        c| --compile)
+        c | --compile)
 			compile_schema=true;;
-		d| --debug)
-			debug_mode=true; echo "debug mode on";;
+		d | --debug)
+			debug_mode=true;;
 		h | --help)
 			echo "Usage"
 			echo -e "\t ./auto_install.sh [options]\n"
@@ -68,7 +68,7 @@ if [ "$XDG_SESSION_TYPE" = "x11" ]; then
 else
 	printf "\n\e[32mAll files copied. \nPlease log out and log back in again to load the extension.\n\n\e[0m"
 fi
-echo "debug_mode:$debug_mode"
+
 if [ "$debug_mode" == true ]; then
 	journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
 fi
