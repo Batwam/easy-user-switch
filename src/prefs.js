@@ -27,9 +27,9 @@ function fillPreferencesWindow(window) {
     // group.set_description('Update Extension Preferences');
     page.add(group);
     this.addToggle('Lock session before switching',"Enable to require password when switching back",'lock-screen-on-switch',extensionSettings,group);
-    let fieldOptions = {'Keyboard shortcut':'shortcut','`chvt` command':'chvt'};
+    let fieldOptions = {'`loginctl` command':'loginctl','`chvt` command':'chvt'};
     this.addCombo('Switch Method','Change method used to switch Virtual Terminal',fieldOptions,'switch-method',extensionSettings,group);
-    this.addToggle('Debug Mode','Enable debug messages in `journalctl --follow` for debugging','debug-mode',extensionSettings,group);
+    this.addToggle('Debug Mode','Enable to generate debug messages in `journalctl --follow`','debug-mode',extensionSettings,group);
 
     //add empty row to separate Rest Button
     group = new Adw.PreferencesGroup({ title: ' ' });

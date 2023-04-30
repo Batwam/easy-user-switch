@@ -62,86 +62,58 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this.menu.addMenuItem(this._switch_user_item);
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-		this._items = [];
-		this._tty = [];
-		let user_names = new Array();
-		this._users.forEach((item) => {
-			let username = item.get_user_name();
-			if (username != GLib.get_user_name() && item.is_logged_in()) {
-				this._items[username] = item;
-				this._tty[username] = this._identifyTTY(item.get_user_name());//find tty corresponding to user
-				if (this._tty[username] || DEBUG_MODE) //only list user which have TTY identified
-					user_names.push(username)
-			}
-		});
+		let loginctlInfo = JSON.parse(this._runShell('loginctl -o json'));
+		loginctlInfo = loginctlInfo.filter( element => element.seat =="seat0"); //only keep graphical users (exclude pihole, ...)
+		let activeUser =  GLib.get_user_name();
+		loginctlInfo = loginctlInfo.filter( element => element.user !== activeUser); //filter out active user
+		log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo: '+JSON.stringify(loginctlInfo));
 
-		user_names.forEach((item) => {
-			let displayName = item;
+		loginctlInfo.forEach((item) => {
+			if (DEBUG_MODE)
+				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty);
+
+			let displayName = this._capitalize(item.user);
 			if (DEBUG_MODE) //provide tty info in menu
-				displayName = item+' (tty'+this._tty[item]+')';
+				displayName =  displayName +' ('+item.tty+')';
 
 			let menu_item = new PopupMenu.PopupMenuItem(displayName);
 
-			if (DEBUG_MODE)
-				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+this._items[item].get_real_name()+' now connected in tty'+this._tty[item]);
-
 			menu_item.connect('activate', () => {
-				if (this._tty[item] && this._items[item].is_logged_in()) {
 					const LOCK_SCREEN_ON_SWITCH = extensionSettings.get_boolean ('lock-screen-on-switch');
 					const SWITCH_METHOD = extensionSettings.get_string ('switch-method');
+					const ttyNumber = item.tty.replace("tty","");//only keep number
+
 					if (DEBUG_MODE)
 						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - SWITCH_METHOD: '+SWITCH_METHOD);
 
-					let tty = this._tty[item];
-
-					if (SWITCH_METHOD == 'chvt'){
-						if (DEBUG_MODE)
-							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: tty'+tty);
-
-						let output = this._runShell('sudo chvt '+tty); //switch to associated tty
-						
-						if (output == false){
-							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
-							const icon = Gio.Icon.new_for_string('error-symbolic');
-							const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
-							let user = this._runShell('whoami').replace(/[\n\r]+/g, ''); //get username
-							Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+user+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
-						}
+					if (LOCK_SCREEN_ON_SWITCH){//lock screen for previous session in background
+						setTimeout(() => {
+							this._runShell('loginctl lock-session 1');
+						}, 2000);
 					}
-					else {
-						if (LOCK_SCREEN_ON_SWITCH){
-							if (DEBUG_MODE)
-									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - lock & shortcut: locking screen before switching');
 
-							Main.overview.hide(); //leave overview mode first if activated
-							Main.screenShield.lock(true); //lock screen
-							setTimeout(() => {
-								let shortcut = "<Ctrl><Alt>F"+tty;
+					switch(SWITCH_METHOD){
+						case 'chvt':
+							if (DEBUG_MODE)
+								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: '+item.tty);
+
+							let output = this._runShell('sudo chvt '+ttyNumber); //switch to associated tty
+							
+							if (output == false){
+								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
+								const icon = Gio.Icon.new_for_string('error-symbolic');
+								const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
+								Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
+							}
+							break;
+
+						case 'loginctl':
 								if (DEBUG_MODE)
-									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - lock & shortcut: '+shortcut);
-
-								let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
-								InputManipulator.activateAccelerator(shortcut); 
-							}, 1000);//simulate pressing shortcut
-						}
-						else {//simulate pressing shortcut
-							let shortcut = "<Ctrl><Alt>F"+tty;
-							if (DEBUG_MODE)
-								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - shortcut: '+shortcut);
-
-							let InputManipulator = new Me.imports.InputManipulator.InputManipulator();
-							InputManipulator.activateAccelerator(shortcut);//simulate pressing shortcut
-						}
+									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctl: to session'+item.session);
+	
+								this._runShell('loginctl activate '+item.session); //switch to associated tty
+								break;
 					}
-				} 
-				else {
-					// In case something is wrong, drop back to GDM login screen
-					Main.osdWindowManager.show(0, null, "Unable to switch, back to login screen");
-					if (DEBUG_MODE)
-						log(Date().substring(16,24)+' fastuserswitch/src/extension.js: '+this._items[item].get_user_name()+' not logged in, drop back to GDM login screen');
-
-					Gdm.goto_login_session_sync(null);
-				}
 			});
 			this.menu.addMenuItem(menu_item);
 		});
@@ -149,12 +121,11 @@ class EasyUserSwitch extends PanelMenu.Button {
 	
 	_identifyTTY(userName){ //Note only works on wayland!
 		let tty = null;
-		// let output = this._runShell('w -hsf').split('\n');
 		let output = this._runShell('loginctl').split('\n');
 
 		output = output.filter(line => line.includes('tty' && userName)); //only retain devices just in case
-		if (DEBUG_MODE)
-			log(Date().substring(16,24)+' panel-user-switch/src/extension.js - filtered by user: '+output.toString());
+		// if (DEBUG_MODE)
+		// 	log(Date().substring(16,24)+' panel-user-switch/src/extension.js - loginctl output for '+userName+': '+output.toString());
 		
 		if (output.length == 0) //user not listed (unlikely)
 			return
@@ -182,8 +153,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 					let [, stdout, stderr] = proc.communicate_utf8_finish(res);
 		
 					if (proc.get_successful()) {
-						if (DEBUG_MODE)
-							log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: \n'+stdout);
+						// if (DEBUG_MODE)
+						// 	log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: \n'+stdout);
 						output = stdout;
 					} else {
 						throw new Error(stderr);
@@ -223,6 +194,9 @@ class EasyUserSwitch extends PanelMenu.Button {
 			this.box.remove_child(this.label);
 
 		this.remove_child(this.box);
+	}
+	_capitalize(string) {
+		return string.charAt(0).toUpperCase() + string.slice(1);
 	}
 });
 
