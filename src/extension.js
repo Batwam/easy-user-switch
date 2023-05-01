@@ -37,7 +37,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 								style_class: 'system-status-icon' });
 		this.box.add_child(icon);
 
-		this._items = [];
+		// cdthis.connect('button-press-event',(_a, event) => this._updateMenu());
 
 		this._user_manager = AccountsService.UserManager.get_default();
 		if (!this._user_manager.is_loaded) {
@@ -51,72 +51,66 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 
 	_updateMenu() {
-		this.menu.removeAll();
+		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_updateMenu()');
+		if(this.menu)
+			this.menu.removeAll();
 
 		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
+		let sessionStatus = this._runShell('loginctl session-status');
+		this._activeSession = sessionStatus.substring(0,sessionStatus.indexOf(' '));//keep number before fors space
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo - Active session: '+JSON.stringify(this._activeSession));
+
 		this._switch_user_item = new PopupMenu.PopupMenuItem(_("Login Screen"));
-		this._switch_user_item.connect('activate', () => Gdm.goto_login_session_sync(null));
-		
-		this.menu.addMenuItem(this._switch_user_item);
-		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-		let loginctlInfo = JSON.parse(this._runShell('loginctl -o json'));
-		loginctlInfo = loginctlInfo.filter( element => element.seat =="seat0"); //only keep graphical users (exclude pihole, ...)
-		let activeUser =  GLib.get_user_name();
-		loginctlInfo = loginctlInfo.filter( element => element.user !== activeUser); //filter out active user
-		log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo: '+JSON.stringify(loginctlInfo));
-
-		loginctlInfo.forEach((item) => {
-			if (DEBUG_MODE)
-				log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty);
-
-			let displayName = this._capitalize(item.user);
-			if (DEBUG_MODE) //provide tty info in menu
-				displayName =  displayName +' ('+item.tty+')';
-
-			let menu_item = new PopupMenu.PopupMenuItem(displayName);
-
-			menu_item.connect('activate', () => {
-					const LOCK_SCREEN_ON_SWITCH = extensionSettings.get_boolean ('lock-screen-on-switch');
-					const SWITCH_METHOD = extensionSettings.get_string ('switch-method');
-					const ttyNumber = item.tty.replace("tty","");//only keep number
-
-					if (DEBUG_MODE)
-						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - SWITCH_METHOD: '+SWITCH_METHOD);
-
-					if (LOCK_SCREEN_ON_SWITCH){//lock screen for previous session in background
-						setTimeout(() => {
-							this._runShell('loginctl lock-session 1');
-						}, 2000);
-					}
-
-					switch(SWITCH_METHOD){
-						case 'chvt':
-							if (DEBUG_MODE)
-								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: '+item.tty);
-
-							let output = this._runShell('sudo chvt '+ttyNumber); //switch to associated tty
-							
-							if (output == false){
-								log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
-								const icon = Gio.Icon.new_for_string('error-symbolic');
-								const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
-								Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
-							}
-							break;
-
-						case 'loginctl':
-								if (DEBUG_MODE)
-									log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctl: to session'+item.session);
-	
-								this._runShell('loginctl activate '+item.session); //switch to associated tty
-								break;
-					}
-			});
-			this.menu.addMenuItem(menu_item);
+		this._switch_user_item.connect('activate', () => {
+			if (extensionSettings.get_boolean ('lock-screen-on-switch')){
+				this._lockActiveScreen();
+				setTimeout(() => {//allow 500ms to lock before switching
+					Gdm.goto_login_session_sync(null)
+				}, 500);
+			}
+			else
+				Gdm.goto_login_session_sync(null)
 		});
+		this.menu.addMenuItem(this._switch_user_item);
+
+		let loginctl = JSON.parse(this._runShell('loginctl list-sessions -o json'));
+		loginctl = loginctl.filter( element => element.seat == "seat0"); //only keep graphical users (exclude pihole, ...)
+		let activeUser = GLib.get_user_name().toString();
+		log(Date().substring(16,24)+' easy-user-switch/src/extension.js - activeUser: '+activeUser);
+		let loginctlInfo = loginctl.filter( element => element.user !== activeUser && element.user !== 'gdm'); //list of connected users
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo - Others: '+JSON.stringify(loginctlInfo));
+
+		if(Object.keys(loginctlInfo).length > 0){
+			this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+			loginctlInfo.forEach((item) => {
+				if (DEBUG_MODE)
+					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty);
+
+				let displayName = this._capitalize(item.user);
+				if (DEBUG_MODE) //provide tty info in menu
+					displayName =  displayName +' ('+item.tty+')';
+
+				let menu_item = new PopupMenu.PopupMenuItem(displayName);
+
+				menu_item.connect('activate', () => {
+					this.menu.close();
+					if (extensionSettings.get_boolean ('lock-screen-on-switch')){
+						this._lockActiveScreen();
+						setTimeout(() => { //allow 500ms to lock before switching
+							this._switchTTY(item);
+						}, 500);
+					}
+					else
+						this._switchTTY(item);
+				});
+				this.menu.addMenuItem(menu_item);
+			});
+		}
 	}
 
 	_runShell(command){ 
@@ -160,8 +154,12 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 
 	_onUserManagerLoaded() {
+		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_onUserManagerLoaded()');
 		this._updateMenu();
-		this._user_manager.connect('user-is-logged-in-changed',this._updateMenu.bind(this));
+		this._user_manager.connect('user-is-logged-in-changed',()=>{
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'user-is-logged-in-changed');
+			this._updateMenu();
+		});
 	}
 
 	_disable(){
@@ -175,6 +173,47 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 	_capitalize(string) {
 		return string.charAt(0).toUpperCase() + string.slice(1);
+	}
+
+	_lockActiveScreen(){
+		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: locking screen');
+
+		// this._runShell('loginctl lock-session '+this._activeSession);
+		Main.overview.hide(); //leave overview mode first if activated
+		Main.screenShield.lock(true); //lock screen
+	}
+
+	_switchTTY(item){
+		const ttyNumber = item.tty.replace("tty","");//only keep number
+
+		const SWITCH_METHOD = extensionSettings.get_string ('switch-method');
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - SWITCH_METHOD: '+SWITCH_METHOD);
+
+		switch(SWITCH_METHOD){
+			case 'chvt':
+				if (DEBUG_MODE)
+					log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt: '+item.tty);
+
+				let output = this._runShell('sudo chvt '+ttyNumber); //switch to associated tty
+				
+				if (output == false){
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
+
+					const icon = Gio.Icon.new_for_string('error-symbolic');
+					const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
+					Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
+				}
+				break;
+
+			case 'loginctl':
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctl to '+item.user+' (session '+item.session+')');
+
+					this._runShell('loginctl activate '+item.session); //switch to associated tty
+					break;
+		}
 	}
 });
 
