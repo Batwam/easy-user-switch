@@ -37,7 +37,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 								style_class: 'system-status-icon' });
 		this.box.add_child(icon);
 
-		// cdthis.connect('button-press-event',(_a, event) => this._updateMenu());
+		// this.connect('button-press-event',(_a, event) => this._updateMenu());
+		this._users = [];
 
 		this._user_manager = AccountsService.UserManager.get_default();
 		if (!this._user_manager.is_loaded) {
@@ -79,21 +80,34 @@ class EasyUserSwitch extends PanelMenu.Button {
 		let loginctl = JSON.parse(this._runShell('loginctl list-sessions -o json'));
 		loginctl = loginctl.filter( element => element.seat == "seat0"); //only keep graphical users (exclude pihole, ...)
 		let activeUser = GLib.get_user_name().toString();
-		log(Date().substring(16,24)+' easy-user-switch/src/extension.js - activeUser: '+activeUser);
+
 		let loginctlInfo = loginctl.filter( element => element.user !== activeUser && element.user !== 'gdm'); //list of connected users
 		if (DEBUG_MODE)
-			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo - Others: '+JSON.stringify(loginctlInfo));
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo - loginctlInfo: '+JSON.stringify(loginctlInfo));
 
-		if(Object.keys(loginctlInfo).length > 0){
+		this._users = this._user_manager.list_users();
+		this._users = this._users.filter( element => element.get_user_name() !== activeUser);
+
+		if(Object.keys(this._users).length > 0){
 			this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-			loginctlInfo.forEach((item) => {
+			this._users.forEach((activeUser) => {
+				const username = activeUser.get_user_name();
+				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - username: '+username);
+				let item = [];
+				// item = loginctlInfo.findLast((element) => element.user == username);
+				loginctlInfo.forEach((element) => { //will pick the last match in case of user listed multiple times
+					if (element.user == username){
+						item = element;
+					}
+				});
+
 				if (DEBUG_MODE)
-					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty);
+					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty+' ('+item.session+')');
 
 				let displayName = this._capitalize(item.user);
 				if (DEBUG_MODE) //provide tty info in menu
-					displayName =  displayName +' ('+item.tty+')';
+					displayName =  displayName +' ('+item.tty+', session '+item.session+')';
 
 				let menu_item = new PopupMenu.PopupMenuItem(displayName);
 
@@ -177,8 +191,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 
 	_lockActiveScreen(){
 		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: locking screen');
-
-		// this._runShell('loginctl lock-session '+this._activeSession);
+		// this._runShell('loginctl lock-session '+this._activeSession); //alaternative method to lock via shell command
 		Main.overview.hide(); //leave overview mode first if activated
 		Main.screenShield.lock(true); //lock screen
 	}
