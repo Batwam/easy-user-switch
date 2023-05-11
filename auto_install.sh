@@ -53,6 +53,10 @@ cp -Rv ./* $INSTALL_DIR
 #go back to original folder
 cd $OLDPWD
 
+if [ "$debug_mode" == true ]; then
+	journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
+fi
+
 #exit if run as root
 if [ "$EUID" -eq 0 ]; then
 	exit
@@ -69,8 +73,5 @@ else
 	printf "\n\e[32mAll files copied. \nPlease log out and log back in again to load the extension.\n\n\e[0m"
 fi
 
-if [ "$debug_mode" == true ]; then
-	journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
-fi
 
 
