@@ -27,8 +27,8 @@ function fillPreferencesWindow(window) {
     // group.set_description('Update Extension Preferences');
     page.add(group);
     this.addToggle('Lock session before switching',"Enable to require password when switching back",'lock-screen-on-switch',extensionSettings,group);
-    let fieldOptions = {'`loginctl` command':'loginctl','`chvt` command':'chvt'};
-    this.addCombo('Switch Method','Change method used to switch Virtual Terminal',fieldOptions,'switch-method',extensionSettings,group);
+    let fieldOptions = {'loginctl':'loginctl','chvt':'chvt'};
+    this.addCombo('Switch Method','Using `chvt` requires adding the command to sudoers',fieldOptions,'switch-method',extensionSettings,group);
     this.addToggle('Debug Mode','Enable to generate debug messages in `journalctl --follow`','debug-mode',extensionSettings,group);
 
     //add empty row to separate Rest Button
