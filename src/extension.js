@@ -95,7 +95,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 				const username = activeUser.get_user_name();
 				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - username: '+username);
 				let item = [];
-				// item = loginctlInfo.findLast((element) => element.user == username);
+				// item = loginctlInfo.findLast((element) => element.user == username); //doesnt' seem to work
 				loginctlInfo.forEach((element) => { //will pick the last match in case of user listed multiple times
 					if (element.user == username){
 						item = element;
@@ -210,13 +210,12 @@ class EasyUserSwitch extends PanelMenu.Button {
 
 				let output = this._runShell('sudo chvt '+ttyNumber); //switch to associated tty
 				
-				if (output == false){
-					if (DEBUG_MODE)
-						log(Date().substring(16,24)+' easy-user-switch/src/extension.js - chvt command output: '+output);
-
+				if (!output){
+					log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'no output');
 					const icon = Gio.Icon.new_for_string('error-symbolic');
 					const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
-					Main.osdWindowManager.show(monitor, icon, 'Please add your user to the /etc/sudoers file and allow \n running `chvt` command without password using \n\''+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*\'', null); //display error
+					const activeUser = GLib.get_user_name().toString();
+					Main.osdWindowManager.show(monitor, icon, 'Please add the following to the /etc/sudoers file:\n'+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*', null); //display error
 				}
 				break;
 
