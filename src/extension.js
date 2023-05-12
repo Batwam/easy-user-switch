@@ -72,24 +72,27 @@ class EasyUserSwitch extends PanelMenu.Button {
 		// identify current user
 		let activeUser = GLib.get_user_name().toString();
 
-		//get list of users
+		//get list of logged in users
 		const userManager = AccountsService.UserManager.get_default();
 		let usersList = userManager.list_users();
-		usersList = usersList.filter( element => element.get_user_name() !== activeUser);
+		usersList = usersList.filter( element => element.get_user_name() !== activeUser && element.is_logged_in());
+		if (DEBUG_MODE)
+			usersList.forEach((element) => {log(Date().substring(16,24)+' easy-user-switch/src/extension.js - user logged in: '+element.get_user_name());});
 
-		//identify tty for each user
+		//extract loginctl info
 		let loginctl = JSON.parse(this._runShell('loginctl list-sessions -o json'));
 		loginctl = loginctl.filter( element => element.seat == "seat0"); //only keep graphical users (exclude pihole, ...)
 		let loginctlInfo = loginctl.filter( element => element.user !== activeUser && element.user !== 'gdm'); //list of connected users exlucing current user
 		if (DEBUG_MODE)
 			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo: '+JSON.stringify(loginctlInfo));
 
+		//identify tty for each user
 		if(Object.keys(usersList).length > 0){
 			this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
 			usersList.forEach((activeUser) => {
 				const username = activeUser.get_user_name();
-				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - username: '+username);
+				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - identifying tty for: '+username);
 				let item = [];
 				// item = loginctlInfo.findLast((element) => element.user == username); //doesnt' seem to work
 				loginctlInfo.forEach((element) => { //will pick the last match in case of user listed multiple times
@@ -99,7 +102,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 				});
 
 				if (DEBUG_MODE)
-					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' now connected in '+item.tty+' ('+item.session+')');
+					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' connected in '+item.tty+' ('+item.session+')');
 
 				let displayName = this._capitalize(item.user);
 				if (DEBUG_MODE) //provide tty info in menu
@@ -138,10 +141,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 			proc.communicate_utf8_async(null, null, (proc, res) => {
 				try {
 					let [, stdout, stderr] = proc.communicate_utf8_finish(res);
-		
 					if (proc.get_successful()) {
-						// if (DEBUG_MODE)
-						// 	log(Date().substring(16,24)+' easy-user-switch/src/extension.js - stdout: \n'+stdout);
 						output = stdout;
 					} else {
 						throw new Error(stderr);
