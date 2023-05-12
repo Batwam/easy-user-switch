@@ -33,28 +33,20 @@ class EasyUserSwitch extends PanelMenu.Button {
 		this.box = new St.BoxLayout({ style_class: 'panel-status-menu-box' });
 		this.add_child(this.box);
 		
-		let icon = new St.Icon({ icon_name: 'system-users-symbolic',
-								style_class: 'system-status-icon' });
+		let icon = new St.Icon({ 
+			icon_name: 'system-users-symbolic',
+			style_class: 'system-status-icon' 
+		});
 		this.box.add_child(icon);
 
-		// this.connect('button-press-event',(_a, event) => this._updateMenu());
-		this._users = [];
-
-		this._user_manager = AccountsService.UserManager.get_default();
-		if (!this._user_manager.is_loaded) {
-			this._user_manager_loaded_id = 	this._user_manager.connect('notify::is-loaded',this._onUserManagerLoaded.bind(this));
-		} 
-		else {
-			this._onUserManagerLoaded();
-		}
+		this.connect('button-press-event',(_a, event) => this._updateMenu()); //generate menu on click
 
 		Main.panel.addToStatusArea('EasyUserSwitch',this,0,'right'); //position,panel_side
 	}
 
 	_updateMenu() {
 		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_updateMenu()');
-		if(this.menu)
-			this.menu.removeAll();
+		this.menu.removeAll();
 
 		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
 		this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
@@ -77,21 +69,25 @@ class EasyUserSwitch extends PanelMenu.Button {
 		});
 		this.menu.addMenuItem(this._switch_user_item);
 
-		let loginctl = JSON.parse(this._runShell('loginctl list-sessions -o json'));
-		loginctl = loginctl.filter( element => element.seat == "seat0"); //only keep graphical users (exclude pihole, ...)
+		// identify current user
 		let activeUser = GLib.get_user_name().toString();
 
-		let loginctlInfo = loginctl.filter( element => element.user !== activeUser && element.user !== 'gdm'); //list of connected users
+		//get list of users
+		const userManager = AccountsService.UserManager.get_default();
+		let usersList = userManager.list_users();
+		usersList = usersList.filter( element => element.get_user_name() !== activeUser);
+
+		//identify tty for each user
+		let loginctl = JSON.parse(this._runShell('loginctl list-sessions -o json'));
+		loginctl = loginctl.filter( element => element.seat == "seat0"); //only keep graphical users (exclude pihole, ...)
+		let loginctlInfo = loginctl.filter( element => element.user !== activeUser && element.user !== 'gdm'); //list of connected users exlucing current user
 		if (DEBUG_MODE)
-			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo - loginctlInfo: '+JSON.stringify(loginctlInfo));
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js - loginctlInfo: '+JSON.stringify(loginctlInfo));
 
-		this._users = this._user_manager.list_users();
-		this._users = this._users.filter( element => element.get_user_name() !== activeUser);
-
-		if(Object.keys(this._users).length > 0){
+		if(Object.keys(usersList).length > 0){
 			this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-			this._users.forEach((activeUser) => {
+			usersList.forEach((activeUser) => {
 				const username = activeUser.get_user_name();
 				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - username: '+username);
 				let item = [];
@@ -167,15 +163,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 		return output;
 	}
 
-	_onUserManagerLoaded() {
-		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_onUserManagerLoaded()');
-		this._updateMenu();
-		this._user_manager.connect('user-is-logged-in-changed',()=>{
-			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'user-is-logged-in-changed');
-			this._updateMenu();
-		});
-	}
-
 	_disable(){
 		if(this.icon)
 			this.box.remove_child(this.icon);
@@ -211,11 +198,12 @@ class EasyUserSwitch extends PanelMenu.Button {
 				let output = this._runShell('sudo chvt '+ttyNumber); //switch to associated tty
 				
 				if (!output){
-					log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'no output');
-					const icon = Gio.Icon.new_for_string('error-symbolic');
-					const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
+					if (DEBUG_MODE)
+						log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'no output, display OSD warning');
+
 					const activeUser = GLib.get_user_name().toString();
-					Main.osdWindowManager.show(monitor, icon, 'Please add the following to the /etc/sudoers file:\n'+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*', null); //display error
+					const osdText = 'Please add the following to the /etc/sudoers file:\n'+activeUser+' ALL=(ALL:ALL) NOPASSWD: /usr/bin/chvt*';
+					this._showOSD('error-symbolic',osdText);
 				}
 				break;
 
@@ -226,6 +214,14 @@ class EasyUserSwitch extends PanelMenu.Button {
 					this._runShell('loginctl activate '+item.session); //switch to associated tty
 					break;
 		}
+	}
+
+	_showOSD(osdIcon,osdText){
+		const icon = Gio.Icon.new_for_string(osdIcon);
+		const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
+		imports.ui.osdWindow.HIDE_TIMEOUT = Math.max(1500,40 * osdText.length); //increate OSD timeout duration to allow time to read
+		Main.osdWindowManager.show(monitor, icon, osdText, 0.8,0.5); //display error
+		imports.ui.osdWindow.HIDE_TIMEOUT = 1500; //reset OSD timeout duration to default
 	}
 });
 
