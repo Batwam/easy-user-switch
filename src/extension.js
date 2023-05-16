@@ -9,7 +9,6 @@ const Mainloop = imports.mainloop;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const extensionSettings = ExtensionUtils.getSettings();
-const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
 
 let indicator = null;
 
@@ -39,13 +38,17 @@ class EasyUserSwitch extends PanelMenu.Button {
 		});
 		this.box.add_child(icon);
 
+		this._updateMenu();
 		this.connect('button-press-event',(_a, event) => this._updateMenu()); //generate menu on click
 
 		Main.panel.addToStatusArea('EasyUserSwitch',this,0,'right'); //position,panel_side
 	}
 
 	_updateMenu() {
-		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_updateMenu()');
+		const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_updateMenu()');
+
 		this.menu.removeAll();
 
 		this.menu.addAction(_('Settings'), () => ExtensionUtils.openPrefs());
@@ -92,7 +95,9 @@ class EasyUserSwitch extends PanelMenu.Button {
 
 			usersList.forEach((activeUser) => {
 				const username = activeUser.get_user_name();
-				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - identifying tty for: '+username);
+				if (DEBUG_MODE)
+					log(Date().substring(16,24)+' easy-user-switch/src/extension.js - identifying tty for: '+username);
+
 				let item = [];
 				// item = loginctlInfo.findLast((element) => element.user == username); //doesnt' seem to work
 				loginctlInfo.forEach((element) => { //will pick the last match in case of user listed multiple times
@@ -177,13 +182,16 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 
 	_lockActiveScreen(){
-		log(Date().substring(16,24)+' easy-user-switch/src/extension.js: locking screen');
+		const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
+		if (DEBUG_MODE)
+			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: locking screen');
 		// this._runShell('loginctl lock-session '+this._activeSession); //alaternative method to lock via shell command
 		Main.overview.hide(); //leave overview mode first if activated
 		Main.screenShield.lock(true); //lock screen
 	}
 
 	_switchTTY(item){
+		const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
 		const ttyNumber = item.tty.replace("tty","");//only keep number
 
 		const SWITCH_METHOD = extensionSettings.get_string ('switch-method');
@@ -219,9 +227,11 @@ class EasyUserSwitch extends PanelMenu.Button {
 	_showOSD(osdIcon,osdText){
 		const icon = Gio.Icon.new_for_string(osdIcon);
 		const monitor = global.display.get_current_monitor(); //identify current monitor for OSD
-		imports.ui.osdWindow.HIDE_TIMEOUT = Math.max(1500,40 * osdText.length); //increate OSD timeout duration to allow time to read
-		Main.osdWindowManager.show(monitor, icon, osdText, 0.8,0.5); //display error
-		imports.ui.osdWindow.HIDE_TIMEOUT = 1500; //reset OSD timeout duration to default
+		const OsdWindow = imports.ui.osdWindow;
+		const defaultOsdTimeout = OsdWindow.HIDE_TIMEOUT;
+		OsdWindow.HIDE_TIMEOUT = Math.clamp(1500,40 * osdText.length,5000); //text length dependant OSD timeout duration to allow time to read
+		Main.osdWindowManager.show(monitor, icon, osdText); //display error
+		OsdWindow.HIDE_TIMEOUT = defaultOsdTimeout; //reset OSD timeout duration to default
 	}
 });
 
