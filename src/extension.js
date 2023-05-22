@@ -38,7 +38,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 		});
 		this.box.add_child(icon);
 
-		this._updateMenu();
 		this.connect('button-press-event',(_a, event) => this._updateMenu()); //generate menu on click
 
 		Main.panel.addToStatusArea('EasyUserSwitch',this,0,'right'); //position,panel_side
