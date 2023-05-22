@@ -54,7 +54,11 @@ cp -Rv ./* $INSTALL_DIR
 cd $OLDPWD
 
 if [ "$debug_mode" == true ]; then
-	journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
+	if hash ccze; then
+		journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension | ccze
+	else
+		journalctl --follow -o cat /usr/bin/gnome-shell GNOME_SHELL_EXTENSION_UUID=$extension
+	fi
 fi
 
 #exit if run as root

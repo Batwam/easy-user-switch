@@ -107,7 +107,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 				});
 
 				if (DEBUG_MODE)
-					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: \u001b[32m'+item.user+' connected in '+item.tty+' ('+item.session+')');
+					log(Date().substring(16,24)+' panel-user-switch/src/extension.js: '+item.user+' connected in '+item.tty+' ('+item.session+')');
 
 				let displayName = this._capitalize(item.user);
 				if (DEBUG_MODE) //provide tty info in menu
