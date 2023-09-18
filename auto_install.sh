@@ -35,6 +35,7 @@ if [ "$system_install" == true ]; then
 		echo "Please run as root"
 		exit
 	fi
+	echo "installing the extension system wide..."
 	INSTALL_DIR=$SYSTEM_DIR
 fi
 

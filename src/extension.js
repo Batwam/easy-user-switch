@@ -44,7 +44,8 @@ class EasyUserSwitch extends PanelMenu.Button {
 	}
 
 	_updateMenu() {
-		const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
+		const DEBUG_MODE = extensionSettings.get_boolean('debug-mode');
+
 		if (DEBUG_MODE)
 			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: '+'_updateMenu()');
 
@@ -161,7 +162,6 @@ class EasyUserSwitch extends PanelMenu.Button {
 		} catch (err) {
 			if (DEBUG_MODE)
 				log(Date().substring(16,24)+' easy-user-switch/src/extension.js - _runShell() general error: '+err);
-				
 		}
 		loop.run();
 		return output;
@@ -184,7 +184,7 @@ class EasyUserSwitch extends PanelMenu.Button {
 		const DEBUG_MODE = extensionSettings.get_boolean ('debug-mode');
 		if (DEBUG_MODE)
 			log(Date().substring(16,24)+' easy-user-switch/src/extension.js: locking screen');
-		// this._runShell('loginctl lock-session '+this._activeSession); //alaternative method to lock via shell command
+
 		Main.overview.hide(); //leave overview mode first if activated
 		Main.screenShield.lock(true); //lock screen
 	}
